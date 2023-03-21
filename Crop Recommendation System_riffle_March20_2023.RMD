@@ -1,0 +1,584 @@
+---
+title: "Crop Recommendation Capstone"
+author: "C.G. Riffle"
+date: "2023-03-20"
+output: pdf_document
+toc: TRUE
+toc_float: TRUE
+toc_number: TRUE
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# **Introduction**
+The expansion of technology coupled with predictive modeling and artificial intelligence (AI) will continue to drive the decision making process in every area of the economy from customer preference targeting through social media for products and services, to making informed decisions for crop production based on classification models. Recommendation systems are used across many sectors including eCommerce, academia, farming, and other industries to facilitate the recommendation of products and services based on indicators such as personal preferences or measured values and features to make classification recommendations.  Recommendation systems leverage machine learning techniques applied to data sets. The process of building a recommendation system uses different strategies to filter data.  For example content based filtering (based on item features) and collaborative filtering (based on user preferences or responses) are commonly used to build recommendation systems.  The value for these system lies in the ability of the system to accurately recommend products and services ranging from  movies, clothes, restaurants, books, and cars. An alternative approach is to build a classification recommendation system to support decision making processes in industries such as healthcare and precision farming. Recommendation system applications are valuable tools for saving time and money. 
+
+The goal for this Capstone project was to build and test a classification model to recommend crops for urban farmers using soil and climate data. Rather than focusing on user based responses and collaborative filtering for development of a model, modeling techniques suitable for classification models were used that offered a different set of challenges with a data set containing 22 possible outcomes. Precision agriculture and urban farming fall into my life science research and horticulture background. As urban areas continue to expand, precision agriculture and technology enhancements will become vital to maximize crop selection and growth in smaller spaces.      
+
+## **Data Set and Variables**
+A "Crop Recommendation Dataset" from India in kaggle was selected and downloaded as a csv file for this analysis (1, 2). The data set was used to build three models for precision farming that enables users to recommend crops based on seven variable data fields. The link to the license is included (3). The data set contains 22 variety of crops, some of which are typically grown in specific countries or climates/zones.  some crops were unknown to me (e.g., moth beans, pigeon peas). Moth beans are a high-protein legume resistant to drought (4). This crop should be able to grow in an area with lower rainfall and humidity values.
+
+The data contains seven variables that align with two categories each containing measured variables used as predictors for crop recommendation. The  predictors in this data set are all important for plant growth.
+
+**Soil data:** macronutrients (Phosphorous, Potassium, and Nitrogen) provide nutrients to the crops and are three main components of fertilizers. 
+
+**Climate data:** temperature, humidity, and rainfall.  
+
+The predictors are described below (1). 
+
+**Nitrogen (N)** Macronutrient represented as the ratio of Nitrogen content in the soil.
+
+**Phosphorous (P)** Macronutrient represented as the ratio of Phosphorous content in the soil.
+
+**Potassium (K)** Macronutrient represented as the ratio of Potassium content in the soil.
+
+**Temperature** Represented as degrees Celsius. Involved in most plant processes.
+
+**Humidity** Represented as percent Relative Humidity (%RH). Source of water to plants.
+
+**pH** Measured value of the soil. It has a measured range from 0  to 14 with  the low end representing acidic values, the center of the range representing neutral values and the high end representing basic values (5).
+
+**Rainfall** Represented as mm. Source of water to plants.
+
+**Label** Represents the crop to recommend.
+
+
+## **Objectives and Approach**
+The goal of this work was to recommend a crop to grow based on soil characteristics (macromolecules and pH) and climate (temperature, humidity, rainfall). Models and approaches learned throughout and in the course book (6), as well as supplemental literature referenced throughout this report were used in understanding and development of the models. Literature suggested a few approaches to examine data that are appropriate for classification models used for a recommendation system including Naive Bayes, KNN, Random Forest, logistic regression, and Support Vector Machine (7, 8, 9).  Principal Component Analysis (PCA) was included in the model as a method to reduce dimensions and maintain variance (10).
+
+**Approach:** Packages were coded to automatically load followed by libraries used in the analysis.  The csv file was loaded through github and data split into train and test data using the caret package. Initial exploration was done with the entire data set understand the structure and basis statistics.  Data was processes and cleaned for analysis and modeling. Analysis from the csv downloaded to my computer indicated the first three columns were integers so they were converted to numeric values.  The label column representing crops was  converted to factors later in the analysis. A Random Forest model was run using the seven predictors which gave a high level of accuracy.  The variable importance was checked and the analysis repeated with the top four variables.
+
+Data were normalized and correlation of the predictor variables checked.  A Principal Component Analysis (PCA) was run to see if the dimensions could be reduced while maintaining a majority of the variance. A scree plot and bi-plot were both included to understand how many components contribute to variance and a bi-plot to to help visualize similarities and their relative importance (11).  The correlation was rechecked with PCA's to make sure multicolinearlity issues were addressed. Multinomial regression was performed using the first five components for prediction and the mis-classification error determined with the test set.
+
+
+#  **Methods and Analysis**
+
+##  **Preparation of Data Sets**
+
+
+**Load Libraries and Packages**
+
+Seven packages were included to automatically load. The following libraries were loaded and used for the analysis: readr, ggplot2, corrplot, dplyr, caret, tidyverse, ggcorrplot, FactoMineR, factoextra, class, randomForest, and nnet.  
+
+```{r, include=FALSE}
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(corrplot)) install.packages("corrplot", repos = "http://cran.us.r-project.org")
+if(!require(ggcorrplot)) install.packages("ggcorrplot", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("randomForest", repos = "http://cran.us.r-project.org")
+if(!require(factoMineR)) install.packages("FactoMineR", repos = "http://cran.us.r-project.org")
+if(!require(factoextra)) install.packages("factoextra", repos = "http://cran.us.r-project.org")
+```
+
+
+```{r, include=FALSE}
+# Install libraries
+library(readr)
+library(ggplot2)
+library(corrplot)
+library(dplyr)
+library(caret)
+library(tidyverse)  
+library(ggcorrplot)
+library(FactoMineR)
+library(factoextra)
+library(class)
+library(randomForest)
+library(nnet)
+```
+
+**Load the Data Set**
+The data set from kaggle was a compressed zip file (csv).  The file was downloaded for analysis and copied to github to make available through the code below.  
+
+
+```{r}
+# Load the data
+crop_data <- read_csv("https://raw.github.com/CGRiffle/crop-capstone-project/main/Crop_recommendation.csv")
+```
+
+**Split Data**
+The data set was split into a train and test set for model development and testing.
+
+```{r, collapse=TRUE}
+# Split the data set into a train and test set.
+set.seed(1, sample.kind="Rounding")
+test_index <- createDataPartition(y = crop_data$label, times = 1, p = 0.1, list = FALSE)
+
+train_crop <- crop_data[-test_index,]
+test_crop <- crop_data[test_index,]
+```
+
+##  **Data Exploration and Visualization** 
+
+The entire crop recommendation data set was used to explore and visualize the data prior to model development. Basic code functions were used to understand the structure, dimensions, and features of the data set. Data processing and cleaning was then performed to change 3 integer columns to numeric values (from csv file downloaded).  The "label" column representing the crops was converted to a factor later in the analysis. The 7 predictor variables were categorized as either a macromolecule, pH, or a climate variable.  The data distribution to understand the measurement range for each crop and and some representative histograms were used to understand additional information on the relationship observed between crops for each variable.
+
+###  **Data Structure**
+
+The basic data structure was determined using the str() function for the entire data set.  The crop data set is a data.frame with 2200 observations of 8 variables including Nitrogen (N), Phosphorous (P), Potassium (K), temperature, humidity, pH (ph), rainfall, and the crop name (label). Each row represents a unique observation of 7 variables and a crop associated with the measured variables. Each variable has the data type (class) defined.  The original data download to my hard drive had both numbers and integers and one character column representing the crops.  Moving data access through github resulted in the classes below.  
+
+```{r, echo=FALSE}
+# Explore the data structure
+str(crop_data)
+```
+The summary() function was used to understand some basic statistics for the data based on the class (data.frame) and type of data (e.g. numeric). The data is summarized for each column in the the data set.  The presence of no NA's listed indicates no data is missing (verified agian later in the analysis).  All of the columns in the data set, except the label, has a mean and median value listed along with data to understand the range, minimum and maximum values. The "label" column describes the class (character), length, and mode. The macromolecules (N, P, and K) have similar ranges (K is slightly higher).
+
+```{r, echo=FALSE}
+# Summarize basic statistics for each variable
+summary(crop_data)
+```
+
+While there are seven variables that can be used to predict the crop, exploration of the crops was performed by first identifying the number of unique crops using the n_distinct() function and then summarizing the number of observations for each crop using the summarize function.  Table 1 shows 22 distinct crops in the data set, each with 100 observations.
+
+```{r, include=FALSE}
+crop_number <- n_distinct(crop_data$label)
+```
+
+```{r, echo=FALSE}
+crop_data |> group_by(label) |>
+  summarize(count = n()) |>
+knitr::kable(col.names = c("Crop Name", "Number of Observations"), caption = "**Distribution of Observations for Each Crop**")
+```
+
+The data set was checked for null values using the following code, colSums(is.na(crop_data)); and, the first six rows examined using the head() function.
+
+```{r, include=FALSE}
+# Check for null values
+colSums(is.na(crop_data))
+```
+
+```{r, echo=FALSE}
+head(crop_data)
+```
+
+###  **Data Preparation and Cleaning**
+
+In order to do Principal Component Analysis (PCA), KNN, and other models; the first three variables (N, P, K) were converted from integers to numeric variables so calculations can be applied appropriately (based on using the downloaded csv file). The "label"character variable was converted to a factor for other analysis later in this document. Changes for the test set were also applied. All changes to prepare and clean data were checked using the str() function.
+
+```{r}
+# convert the first three columns of the training and test sets to numeric values.
+train_crop[,1:3] <- lapply(train_crop[, 1:3] , as.numeric)
+test_crop[,1:3] <- lapply(test_crop[, 1:3] , as.numeric)
+```
+
+```{r, echo=FALSE}
+# Check replacement
+str(train_crop)
+str(test_crop)
+```
+
+###  **Macromolecule Variables**
+
+The macromolecules (K, P, N) were examined to understand the number of distinct values (K=73, P=116, N=136). Table 2 shows basic statistics (mean and standard deviation) for each crop. 
+
+```{r, include=FALSE}
+# Number of individual values for each macromolecule
+train_crop |> 
+  summarize(n_K = n_distinct(K),
+            n_P = n_distinct(P),
+            n_N  = n_distinct(N))
+```
+
+```{r, echo=FALSE}
+# Mean and standard deviation for each crop
+train_crop |>
+group_by(label) |>
+summarize(ave_N = mean(N), sd_n = sd(N), ave_k = mean(K), sd_k = sd(K), ave_p = mean(P), sd_p = sd(P)) |>
+  rename(Crops = label) |> 
+knitr::kable(col.names = c("Crops", "Mean N", "SD N", "Mean K", "SD K", "Mean P", "SD P"), caption = "**Basic Macromolecule Statistics for Crops**") 
+```
+
+**Nitrogen (N):** The data distribution for the Nitrogen ratio has a range that extends from zero to 140. All distribution plots have a red vertical line representing the mean (50.55) and a black vertical line representing the median (37.00). Eleven crops have very similar Nitrogen ranges at the lower end of the scale (~0 to 40).  A group of four crops have similar nitrogen ranges at the higher end of the range (~80-120). The histogram plot shows the distribution to be bimodal or multimodal for the crop data.
+
+```{r, echo=FALSE, fig.height=4, fig.width=6 }
+ggplot(data = train_crop) +
+  geom_point(aes(N, label, color = N)) +
+  ggtitle("Nitrogen Data Distribution Range") +
+  geom_vline(xintercept = mean(train_crop$N), color = "red") +
+  geom_vline(xintercept = median(train_crop$N), color = "black")
+```
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+qplot(train_crop$N, bins = 30, fill = train_crop$label, color = I("white")) +
+  xlab("Nitrogen ") +
+  labs(fill = "Crops")
+```
+
+**Phosphorous:**The data distribution for the Phosphorous ratio has a range that extends from 5 to 145 with an overall mean of 53.36 and median of 51.00. A separate group of two crops, apples and grapes, have a high ratio of Phosphorous in the range of ~120-145. 
+
+```{r, echo=FALSE, fig.height=4, fig.width=6 }
+ggplot(data = train_crop) +
+  geom_point(aes(P, label, color = P)) +
+  ggtitle("Phosphorous Data Distribution Range") +
+  geom_vline(xintercept = mean(train_crop$P), color = "red") +
+  geom_vline(xintercept = median(train_crop$P), color = "black")
+```
+
+**Potassium:** The data distribution for the Potassium ratio has a range that extends from 5 to 205 with a mean 48.15 and a median of 32.00. While most of the crops are at the lower end of the range, apples and grapes once again are at the high end of the range, separated from the other crops (~195-205).  Chick peas also appear to be separate with a Potassium ration of ~75-85.  For this distribution, the mean is greater than the median, skewed left with more observations at the lower end of the range.
+
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+ggplot(data = train_crop) +
+  geom_point(aes(K, label, color = K)) +
+  ggtitle("Potassium Data Distribution Range") +
+  geom_vline(xintercept = mean(train_crop$K), color = "red") +
+   geom_vline(xintercept = median(train_crop$K), color = "black")
+```
+
+### **pH**
+The soil pH has 1760 distinct values. Table 3 shows the average for individual crops ranges from 5.7 to 7.3. The pH data distribution ranges from 3.505 to 9.935. The broad range can be attributed to soil pH values associated with moth beans. If that crop were removed, the range would be tighter (~4.5 to 9). The mean is 6.469 and the median is 6.425, both slightly acidic. The qplot for pH appears to have a normal distribution with some tailing in acidic and basic zones attributed to moth beans.  
+
+```{r, include=FALSE}
+# Number of individual values for pH
+train_crop |> 
+  summarize(n_ph = n_distinct(ph))
+```
+
+```{r, echo=FALSE, fig.height=4, fig.width=6 }
+# pH mean and standard deviation for each crop
+train_crop |>
+group_by(label) |>
+summarize(ave_ph = mean(ph), sd_ph = sd(ph)) |>
+  rename(Crops = label) |>
+  knitr::kable(col.names = c("Crops", "Mean", "SD"), caption = "**Soil pH Mean and Standard Deviation for Crops**") 
+```
+
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+ggplot(data = train_crop) +
+  geom_point(aes(ph, label, color = ph)) +
+  ggtitle("pH Data Distribution Range") +
+  geom_vline(xintercept = mean(train_crop$ph), color = "red") +
+   geom_vline(xintercept = median(train_crop$ph), color = "black")
+```
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+qplot(train_crop$ph, bins = 30, fill = train_crop$label, color = I("white")) +
+  xlab("pH") +
+  labs(fill = "Crops")
+```
+
+### **Climate Variables**
+Temperature, humidity, and rainfall all have 1760 distinct values. Table 4 shows the mean and standard deviation for each crop.  Considering crops vary in their climate zone requirements and can be seasonal (e.g., Ohio), a variable range across crops is expected.  In Ohio, the outdoor planting season starts with spring crops (e.g., strawberries, peas, spinach), summer crops (e.g., tomatoes, peppers, kale), followed by fall crops (e.g., beets, radishes, swiss chard). See the local planting guide (12).  Availability of controlled greenhouse conditions extends the season year round and enables controlled nutrient supplementation while leveraging new technologies (e.g., hydroponics, vertical systems).
+
+```{r, include=FALSE}
+# Number of individual values for each climate variable
+train_crop |> 
+  summarize(n_temp = n_distinct(temperature),
+            n_humidity = n_distinct(humidity),
+            n_rain  = n_distinct(rainfall))
+```
+
+
+```{r,echo=FALSE, fig.height=4, fig.width=6}
+# Mean and standard deviation for each crop
+train_crop |>
+group_by(label) |>
+summarize(ave_temp = mean(temperature), sd_temp = sd(temperature), ave_hum = mean(humidity), sd_hum = sd(humidity), ave_rain = mean(rainfall), sd_rain = sd(rainfall)) |>
+  rename(Crops = label) |>
+knitr::kable(col.names = c("Crops", "Mean Temperature (C)", "SD Temperature (C)", "Mean %RH", "SD %RH", "Mean Rainfall (mm)", "SD Rainfall (mm)"), caption = "**Basic Statistics for Crops**") 
+```
+
+**Temperature:** The temperature data distribution ranges from 8.826C (48F) to 43.675C (111F). Pigeon peas, oranges, papaya, and grapes have a fairly wide temperature range for growth based on this data. The data set also shows 10 crops with a narrow temperature range (watermelon, muskmelon, mung bean, jute, cotton, coffee, coconut, chickpeas, bananas and apples). Let's look at one of these crops, apples.  The temperature range for apples appears to be approximately 21C-24C (70F-75F). In an area with seasonal changes where apples grow well; such as Ohio, the temperature range is much broader than the range in the data supporting the need for understanding the impact of location and seasonal effects.
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+ggplot(data = train_crop) +
+  geom_point(aes(temperature, label, color = temperature)) +
+  ggtitle("Temperature Data Distribution Range") +
+  geom_vline(xintercept = mean(train_crop$temperature), color = "red") +
+   geom_vline(xintercept = median(train_crop$temperature), color = "black")
+```
+
+**Humidity:** The humidity data distribution ranges from 14.26% RH to 99.98% RH.  The humidity data for Pigeon peas has the largest range. Some crops have humidity data reported with very tight ranges; similar to the temperature data, supporting the need to understand location and seasonality effects. The qplot for humidity indicates a multimodal distribution.
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+ggplot(data = train_crop) +
+  geom_point(aes(humidity, label, color = humidity)) +
+  ggtitle("Humidity Data Distribution Range") +
+  geom_vline(xintercept = mean(train_crop$humidity), color = "red") +
+   geom_vline(xintercept = median(train_crop$humidity), color = "black")
+```
+
+```{r,echo=FALSE, fig.height=4, fig.width=6}
+qplot(train_crop$humidity, bins = 30, fill = train_crop$label, color = I("white")) +
+  xlab("Humidity") +
+  labs(fill = "Crops")
+```
+
+**Rainfall:** The rainfall data distribution ranges from 20.21 mm (0.8") to 298.56 mm (11.8"). Rice has the highest rainfall reported for the crops.  
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+ggplot(data = train_crop) +
+  geom_point(aes(rainfall, label, color = rainfall)) +
+  ggtitle("Rainfall Data Distribution Range") +
+  geom_vline(xintercept = mean(train_crop$rainfall), color = "red") +
+   geom_vline(xintercept = median(train_crop$rainfall), color = "black")
+```
+
+# **Model Development**
+
+Model development for this recommendation system began with a Random Forest model (Model 1), which can be used for classification or regression, followed by an updated Random Forest model (Model 2) with some variables removed (6,13, 14). A correlation of the predictor variables was performed followed by Principal Component Analysis and Multinomial Regression.  
+
+
+## **Model 1 Random Forest**
+
+The first model selected to examine for model development was Random Forest using all seven predictor variables. The label column representing the crops was converted to a factor in both the training and test data sets.  Ten-fold cross validation was used for the training control. The highest accuracy (99.5%) was achieved using the training set with an mtry value of 2. When the model was checked with the test data, an accuracy of 99.1% was achieved.                        
+
+
+```{r}
+# Set the K-fold Cross Validation using the trainControl() function
+control_rf <- trainControl(method = "cv", # resample data
+                            number = 10,  # folds
+                            search = "grid") 
+```
+
+```{r}
+# Convert label to a factor in train and test data sets
+train_crop2 <- train_crop
+train_crop2$label <- factor(train_crop$label)
+
+test_crop2 <- test_crop
+test_crop2$label <- factor(test_crop$label)
+```
+
+
+```{r}
+# Base Random Forest model using all 7 predictors
+# Train model
+set.seed(1, sample.kind = "Rounding")
+
+rf_model <- train(label~.,
+                  data = train_crop2,
+                  method = "rf",
+                  control_rf = control_rf,
+                  ntree = 100,
+                  metric = "Accuracy")
+                 
+
+print(rf_model)
+rf_model$bestTune
+```
+
+```{r, include=FALSE}
+ggplot(rf_model)
+```
+
+
+**Check Accuracy - Test Data**
+
+```{r}
+rf_preds <- predict(rf_model, test_crop2)
+mean(rf_preds == test_crop2$label)
+```
+
+## **Model 2 Random Forest - Reduced Variables**
+
+The importance of predictors for Model 1 was checked using the varImp() function. The top four variables based on importance (rainfall, humidity, K, and P) were used for Model 2 to understand the impact of removing three variables. The highest accuracy for Model 2 was (97.3%) when using the training set with an mtry value of 2.  The model was checked for accuracy using the test data and accuracy improved to 100%.   
+
+```{r}
+varImp(rf_model)
+```
+
+
+```{r, echo=TRUE}
+# The top 4 variables were selected for both the train and test data set.
+train_crop3 <- train_crop2 |> select(rainfall, humidity, K, P, label)
+test_crop3 <- train_crop2 |> select(rainfall, humidity, K, P, label)
+```
+
+
+```{r}
+# Train Model 2
+set.seed(1, sample.kind = "Rounding")
+
+rf_model2 <- train(label~.,
+                  data = train_crop3,
+                  method = "rf",
+                  control_rf = control_rf,
+                  ntree = 100,
+                  metric = "Accuracy")
+                 
+
+print(rf_model2)
+rf_model2$bestTune
+```
+
+```{r, include=FALSE}
+plot(rf_model2)
+```
+
+**Check Accuracy of Model 2 - Test Data**
+
+```{r}
+rf_preds2 <- predict(rf_model2, test_crop3)
+mean(rf_preds2 == test_crop3$label)
+```
+
+## **Model 3 Principal Component Analysis (PCA) Model Development**
+
+Looking at the Random Forest models was fairly routine. With this type of data, It was important to understand correlation of the predictor variables to see how the variables relate to each other and if dimension reduction was possible. References available for correlation plots were very informative and useful (11, 15).  
+
+PCA is used for dimension reduction and keeping a high level of variance. Ideally a data set for crop recommendation would have many more variables (additional macro and micronutrients, location, historical data (time based), seasonality, length of daylight, etc.).  Many references were used to understand how to approach, visualize, and evaluate the principal components (10, 11, 16)
+
+### **Check Correlation of Independent Variables**
+Checking the correlation of independent variables provided further insight into potential issues such as multicollinearity and understanding relationships between the predictor variables. The train_crop data set was normalized by scaling and then used to create a correlation matrix using only the predictor variables in the first 7 columns. ggcorrplot() was used to visualize the matrix.
+
+```{r}
+# Normalize numeric data in the data set using scaling (columns 1:7)
+train_numeric <- train_crop[,1:7]
+
+train_normal <- scale(train_numeric)
+head(train_normal)
+```
+
+```{r}
+# Correlation matrix 
+train_corr_matrix <- cor(train_normal)
+```
+
+The correlation can be interpreted by higher positive values having a higher correlation and the negative values closest to -1.0 are the most negatively correlated. Analysis was first run using both princomp() and prcomp().  Based on the site Statistical Tools for High-throughput Data Analysis (STHDA), prcomp() was selected (16). The correlation matrix below shows that P and K are highly correlated.  Consideration could be given to removing one of these feature variable, P or K. 
+
+```{r, fig.height=4, fig.width=6}
+ggcorrplot(train_corr_matrix, hc.order = TRUE, lab = TRUE, colors = c("darkred", "white", "steelblue"))
+```
+
+### **PCA**
+
+The PCA analysis was performed by transforming the variables to components. The summary indicates the importance of components showing the first five components account for 87.6% of the variance. This is also observed with the Scree plot. The relationship of the variables to the components is shown using the print() function. For example, for PC1 there is a high correlation for P and K. The biplot for PC1 and PC2 also provides insight to the relationships of the components to the variables.
+
+
+```{r}
+train_pca <- prcomp(train_crop[,1:7], center = TRUE, scale = TRUE)
+summary(train_pca)
+```
+
+```{r, include=FALSE}
+# Plot importance. 
+plot(summary(train_pca)$importance[3,])
+```
+
+```{r}
+print(train_pca)
+```
+
+
+```{r,fig.height=4, fig.width=6 }
+fviz_eig(train_pca, addlabels = TRUE) +
+  xlab("Principal Component")
+```
+
+
+**Bi-Plot**
+
+The bi-plot below visualizes attribute similarities and their relative importance (cos2) for the first 2 components. In a bi-plot, Variables grouped together are positively correlated to each other (e.g. rainfall, humidity, temperature, Nitrogen) and the higher distance from the center (origin) to the variable, the better the variable is represented. Some insight from the bi-plot are listed below.
+1. Humidity is better represented than rainfall, temperature, and Nitrogen and has higher level of relative importance.
+2. P and K are correlated to each other and have a high level of relative importance.
+3. PC1 (Dim1) is positively correlated with K and P.
+4. P and K are weakly correlated to the other variables.
+5. pH is weakly correlated to other variables.
+6. PC2 is positively correlated with all variables except pH
+
+```{r, fig.height=4, fig.width=6}
+fviz_pca_var(train_pca, col.var = "cos2",
+            gradient.cols = c("black", "blue", "green"),
+            repel = TRUE)
+```
+
+
+The next step was to check if multicolinearity was addressed. The correlation data of the compoents is plotted below.  PCA successfully transforms the data into uncorrelated variables (18). 
+
+```{r, fig.height=4, fig.width=6}
+# Re-check correlation 
+check <-cor(train_pca$x)
+check
+```
+
+```{r, fig.height=4, fig.width=6}
+ggcorrplot(check, hc.order = TRUE, lab = TRUE, colors = c("darkred", "white", "steelblue"))
+```
+
+### **Multinomial Regression using Principal Components for Prediction**
+
+Mulitnomial logistic regression was performed with the first 5 principal components (17). The crop data was added back into both the train and test data sets.  The nnet() library was used to perform the analysis. Apple was selected for the reference since selected values separated it from a majority of the crops. The model was trained with 100 iterations. Coefficients are listed for each PCA used and crop. The test set was used with the model and misclassification error calculated (9.5%). Changing by data split for the the test set from 20% to 10% reduced the misclassification error from 50% (data not shown) to 9.5%.  
+
+```{r}
+# Add crop information back into the data sets
+train <- predict(train_pca, train_crop)
+train <- data.frame(train, train_crop[8])
+test <- predict(train_pca, test_crop)
+test <- data.frame(test, test_crop[8])
+```
+
+
+```{r}
+library(nnet)
+train$label <- factor(train$label, ordered=FALSE)
+train$label <- relevel(train$label, ref = "apple")
+multinomial_model <- multinom(label~PC1+PC2+PC3+PC4+PC5, data = train)
+summary(multinomial_model)
+```
+
+```{r}
+multinomial_pred <- predict(multinomial_model, test)
+multinomial_table <- table(multinomial_pred, test$label)
+```
+
+```{r}
+#error associated with the test set
+multinomial_model_error <- 1 - sum(diag(multinomial_table)/sum(multinomial_table))
+multinomial_model_error
+```
+
+# **Results**
+
+Three models were evaluated for the crop recommendation system. Model 1 was a Random Forest model using all seven predictive variables for the analysis. The best mtr was 2 and resulted in an accuracy of 99.1% which seemed high for my first attempt but the data was not that complex with only 7 predictors. varImp was used to identify the top variables. The top four variables were selected for Model 2, an updated version of the first Random Forest model with fewer predictors. Both models had a high level of accuracy and have potential for use in a crop recommendation system.
+
+PCA was selected a a method to evaluate for down selection of variables.  Although the data set used only had seven predictors, there were 22 possible outcomes. The correlation matrix provided a good understand of how independent variables correlated. In that matrix, only P and K were highly correlated indicating one could be removed. The PCA analysis showed the first five components were required to achieve a variance over 87%. Multinomial logistic regression was used for prediction and the misclassification error was 9.5%. Only two variables were removed using PCA. A larger data set with more predictor variables may work better using this type of analysis. Other models could be evaluated as well (e.g. Naive Bayes, Support Vector Machine).   
+
+
+# **Conclusions**
+
+The data set used was basic and had limitations. The data was from India so  predictor variable ranges in the data set may not be applicable to other locations.  Additional data on seasonality, more nutrient components (e.g., micronutrients), daylight, crop variety, soil type,and incorporation of region collected (location) would also be useful for model development. In order to continue model development, I would look deeper into data collection for this data set.  Identification and analysis of data with with U.S. zones, relevant crops, all macro- and micro- nutrients, climate, and seasonality, and additional crop variety would be ideal for my use. Nutrient recommendations would be interesting to tackle as well (e.g., N-P-K ratios) along with troubling shooting growth issues.  
+
+
+# **References**
+
+1.  <https://www.kaggle.com/datasets/siddharthss/crop-recommendation-dataset>
+
+2. <https://www.kaggle.com/datasets/siddharthss/crop-recommendation-dataset?select=Crop_recommendation.csv>)
+
+3.  <https://creativecommons.org/licenses/by/3.0/igo/>
+
+4. <https://pipingpotcurry.com/moth-dal-matki-curry/>
+
+5. <https://www.usgs.gov/media/images/ph-scale-0#:~:text=The%20range%20goes%20from%200,than%207%20indicates%20a%20base.>
+
+6. <http://rafalab.dfci.harvard.edu/dsbook/>
+
+7. <https://www.sciencedirect.com/science/article/pii/S1877050922007293>
+
+8. <https://www.geeksforgeeks.org/random-forest-approach-for-classification-in-r-programming/>
+
+9. <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9412477/>
+
+10. <https://www.r-bloggers.com/2021/05/principal-component-analysis-pca-in-r/>
+
+11. <https://www.datacamp.com/tutorial/pca-analysis-r>
+
+12. <https://www.almanac.com/gardening/planting-calendar/OH/Columbus>
+
+13. <https://www.r-bloggers.com/2021/04/random-forest-in-r/>
+
+14. <https://www.geeksforgeeks.org/random-forest-approach-for-classification-in-r-programming/>
+
+15. <https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html>
+
+16. <http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/#:~:text=The%20function%20princomp()%20uses,preferred%20compared%20to%20princomp().>
+
+17. <https://www.r-bloggers.com/2020/05/multinomial-logistic-regression-with-r/>
+
+
+
